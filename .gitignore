@@ -1,0 +1,18 @@
+# ===== 절대 올라가면 안 되는 것 =====
+# API 키, 경희대 앱 비밀번호
+.env
+# 실제 메일 본문이 담긴 로컬 DB, AI 응답 캐시
+data/
+
+# ===== 파이썬 =====
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# ===== 평가 리포트 (필요하면 개별적으로 git add) =====
+reports/*.md
+!reports/.gitkeep
+
+# ===== macOS =====
+.DS_Store

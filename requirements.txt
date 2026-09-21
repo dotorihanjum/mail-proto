@@ -1,0 +1,11 @@
+# M2 프로토타입 — 파이썬 패키지 목록
+# 설치: pip install -r requirements.txt
+
+anthropic>=1.7.0       # Claude API 공식 SDK
+pydantic>=2.13.0       # AI 출력 형식 검사
+python-dotenv>=1.2.0   # .env 파일 읽기
+fastapi>=0.141.0       # 웹 서버 (M5부터 사용)
+uvicorn>=0.53.0        # FastAPI 실행기 (M5부터 사용)
+pytest>=9.1.0          # 테스트 (M4부터 사용)
+
+# HTML 제거·날짜 파싱은 파이썬 기본 내장 기능만 씁니다 (추가 설치 없음)
