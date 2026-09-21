@@ -56,8 +56,10 @@ CONFIDENCE_REVIEW_MAX = 0.7
 UNPARSED_DATE_CONFIDENCE_CAP = 0.7
 
 # TUNE: 연도가 없는 날짜("10/5까지")를 미래로 해석할 최대 범위(개월).
-#       넘으면 확인 필요로 보낸다. 회고성 메일의 "1/5"가 D-106이 되는 것을 막는다.
-YEAR_INFERENCE_MAX_MONTHS = 6
+#       넘으면 확인 필요로 보낸다. 회고성 메일의 "1/5"가 먼 미래로 둔갑하는 것을 막는다.
+#       9로 정한 이유: 대학원 원서·장학금처럼 반년 이상 앞서 안내되는 일정이 실제로
+#       있어서 6개월은 너무 짧았다. (사용자 결정 2026-09-21)
+YEAR_INFERENCE_MAX_MONTHS = 9
 
 # TUNE: 중복으로 묶을 제목 유사도 (difflib ratio)
 DUPLICATE_TITLE_SIMILARITY = 0.8

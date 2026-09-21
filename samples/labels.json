@@ -233,7 +233,7 @@
     },
     "m14": {
       "kind": "연도생략",
-      "note": "★[G] 검증: 수신일 09-16 기준 '4/15'는 2027-04-15 = 약 7개월 후. 연도 보정 상한 6개월을 넘으므로 확인 필요로 가야 함",
+      "note": "★연도 보정 검증: 수신일 09-16 기준 '4/15'는 2027-04-15 = 약 7개월 후. 보정 상한 9개월 이내이므로 정상 처리. ※본문에 '추후 공지' 표현이 있어 AI가 신뢰도를 낮게 잡을 수 있음 — 그 경우 '확인 필요'로 가는데, 이는 규칙 위반이 아니라 판단 차이이므로 M6에서 따로 들여다볼 것",
       "action_required": true,
       "injection_test": false,
       "expected_items": [
@@ -243,8 +243,8 @@
             "원서",
             "접수"
           ],
-          "deadline_iso": null,
-          "needs_review": true
+          "deadline_iso": "2027-04-15",
+          "needs_review": false
         }
       ],
       "duplicate_group": null
