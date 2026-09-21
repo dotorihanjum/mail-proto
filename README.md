@@ -64,7 +64,7 @@ cd /Users/lwj/Desktop/claude/mail_proto && ./.venv/bin/pip install -r requiremen
 | `./.venv/bin/python -m app.extract --no-cache` | M3 — 캐시 무시하고 다시 호출 (약 180원) |
 | `./.venv/bin/python -m app.evaluate` | M6 — 정확도 평가 리포트 생성 |
 | `./.venv/bin/python -m pytest` | M4 — 규칙 엔진 테스트 (56개, AI 안 씀, 0원) |
-| `./.venv/bin/uvicorn app.main:app --reload` | M5 — 웹 화면 (http://127.0.0.1:8000) |
+| `./.venv/bin/uvicorn app.main:app --port 8000` | M5 — 웹 화면. 브라우저에서 http://127.0.0.1:8000 열기 (끌 때는 Ctrl+C) |
 
 ---
 
@@ -76,7 +76,7 @@ cd /Users/lwj/Desktop/claude/mail_proto && ./.venv/bin/pip install -r requiremen
 | M2 | 샘플 메일 30통 + 정답 | 예정 |
 | M3 | AI 추출 + 검증 | 완료 |
 | M4 | 규칙 엔진 + 테스트 | 완료 |
-| M5 | 웹 화면 | 예정 |
+| M5 | 웹 화면 | 완료 |
 | M6 | 평가 리포트 | 예정 |
 | M7 | 경희대 메일 연동 | 예정 |
 

@@ -1,0 +1,82 @@
+:root{
+  --bg:#f6f7f9; --card:#fff; --line:#e3e6ea; --text:#1c1f23; --muted:#6b7280;
+  --urgent:#c0392b; --high:#d97706; --normal:#2563eb; --easy:#6b7280;
+  --review:#7c3aed; --over:#9ca3af;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;
+  font-size:15px;line-height:1.6}
+header{background:var(--card);border-bottom:1px solid var(--line);padding:14px 20px;
+  position:sticky;top:0;z-index:10}
+.bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+h1{font-size:17px;margin:0;font-weight:700}
+.ctrl{display:flex;align-items:center;gap:10px;margin-left:auto;flex-wrap:wrap}
+select{padding:6px 8px;border:1px solid var(--line);border-radius:7px;background:#fff}
+button{padding:7px 13px;border:1px solid var(--line);border-radius:7px;background:#fff;
+  cursor:pointer;font-size:14px;font-family:inherit}
+button:hover{background:#f0f2f5}
+button.primary{background:#1c1f23;color:#fff;border-color:#1c1f23}
+button.primary:hover{background:#34383d}
+button:disabled{opacity:.5;cursor:not-allowed}
+.chip{font-size:12.5px;color:var(--muted);background:#f0f2f5;padding:4px 9px;border-radius:20px}
+.counts{display:flex;gap:16px;margin-top:10px;font-size:13px;color:var(--muted);flex-wrap:wrap}
+.counts b{color:var(--text)}
+.status{margin-top:10px;padding:9px 12px;border-radius:7px;background:#eef2ff;font-size:14px}
+.status.err{background:#fee2e2;color:#991b1b}
+.notice{margin-top:10px;padding:9px 12px;border-radius:7px;background:#fef3c7;font-size:13.5px}
+.hidden{display:none}
+main{max-width:940px;margin:22px auto;padding:0 20px 60px}
+section{margin-bottom:30px}
+h2{font-size:15.5px;margin:0 0 4px}
+.hint{font-size:13px;color:var(--muted);margin:0 0 10px}
+.badge{font-size:12px;color:var(--muted);font-weight:400}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(265px,1fr));gap:12px}
+.card,.row{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:13px 15px}
+.card{border-left:4px solid var(--normal)}
+.card.p0{border-left-color:var(--urgent)}
+.card.p1{border-left-color:var(--high)}
+.card.p3{border-left-color:var(--easy)}
+.list{display:flex;flex-direction:column;gap:9px}
+.row{display:flex;gap:12px;align-items:flex-start}
+.row.rev{border-left:4px solid var(--review)}
+.row.over{border-left:4px solid var(--over);opacity:.75}
+.row.done .title{text-decoration:line-through;color:var(--muted)}
+.title{font-weight:600;margin-bottom:3px}
+.grow{flex:1;min-width:0}
+.dday{font-weight:700;font-size:13px;white-space:nowrap}
+.dday.p0{color:var(--urgent)} .dday.p1{color:var(--high)}
+.dday.p2{color:var(--normal)} .dday.p3{color:var(--easy)}
+.meta{font-size:12.5px;color:var(--muted);margin-top:3px}
+.evidence{font-size:12.5px;color:#374151;background:#f7f8fa;border-left:3px solid var(--line);
+  padding:6px 9px;margin-top:7px;border-radius:0 5px 5px 0;white-space:pre-wrap}
+.tag{display:inline-block;font-size:11.5px;padding:2px 7px;border-radius:5px;
+  background:#f0f2f5;color:var(--muted);margin-right:5px}
+.tag.rev{background:#ede9fe;color:#6d28d9}
+.tag.merge{background:#dcfce7;color:#15803d}
+.tag.warn{background:#fee2e2;color:#991b1b}
+.src{font-size:12px;color:var(--muted);margin-top:5px}
+.link{color:var(--normal);cursor:pointer;text-decoration:underline;font-size:12.5px;
+  background:none;border:none;padding:0;font-family:inherit}
+input[type=checkbox]{width:17px;height:17px;margin-top:2px;cursor:pointer;flex:none}
+details summary{cursor:pointer;font-size:15.5px;font-weight:700;margin-bottom:10px}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;
+  align-items:center;justify-content:center;padding:20px;z-index:100}
+.modal-box{background:#fff;border-radius:11px;max-width:760px;width:100%;
+  max-height:82vh;display:flex;flex-direction:column}
+.modal-head{display:flex;gap:12px;align-items:center;padding:15px 18px;
+  border-bottom:1px solid var(--line)}
+.modal-head strong{flex:1;font-size:15px}
+.modal-box .meta{padding:0 18px;margin-top:10px}
+.tabs{display:flex;gap:7px;padding:11px 18px 0}
+.tab{font-size:13px;padding:5px 11px}
+.tab.active{background:#1c1f23;color:#fff;border-color:#1c1f23}
+pre{margin:13px 18px 18px;padding:13px;background:#f7f8fa;border-radius:7px;
+  overflow:auto;white-space:pre-wrap;word-break:break-word;font-size:13px;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;line-height:1.65}
+mark{background:#fde68a;padding:1px 0}
+.empty{color:var(--muted);font-size:13.5px;padding:11px 2px}
+
+/* .modal 의 display:flex 보다 뒤에 있어야 이긴다.
+   앞에 두면 숨겨야 할 모달이 빈 채로 떠 버린다. */
+.hidden{display:none !important}
