@@ -163,7 +163,9 @@ def main() -> None:
     import sys
     import time
 
+    from datetime import date as _date
     from app.validate import validate_extraction, summarize, REASON_TEXT
+    from app.rules import apply_rules
 
     ap = argparse.ArgumentParser(description="샘플 메일을 AI로 처리합니다.")
     ap.add_argument("--no-cache", action="store_true", help="캐시를 쓰지 않고 다시 호출")
@@ -194,6 +196,9 @@ def main() -> None:
         out = validate_extraction(
             extract_one(client, e, today, model=model, use_cache=not args.no_cache)
         )
+        # SPEC 6장: AI 추출 -> 검증 -> 규칙 처리
+        out = apply_rules(out, _date.fromisoformat(e["received_at"][:10]),
+                          _date.fromisoformat(today))
         outs.append(out)
 
         mark = "  " if out["status"] == "success" else "X "
