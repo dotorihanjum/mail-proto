@@ -13,13 +13,15 @@ from pathlib import Path
 from app import config
 
 
-def _key(model: str, prompt_version: str, payload: str) -> str:
-    raw = f"{model}\x00{prompt_version}\x00{payload}".encode()
-    return hashlib.sha256(raw).hexdigest()[:32]
+def _key(model: str, prompt_version: str, payload: str, variant: str = "") -> str:
+    # variant 가 비면 예전 형식을 그대로 쓴다. 기존 캐시를 버리지 않기 위해서다.
+    parts = [model, prompt_version] + ([variant] if variant else []) + [payload]
+    return hashlib.sha256("\x00".join(parts).encode()).hexdigest()[:32]
 
 
-def get(model: str, prompt_version: str, payload: str) -> dict | None:
-    f = config.LLM_CACHE_DIR / f"{_key(model, prompt_version, payload)}.json"
+def get(model: str, prompt_version: str, payload: str,
+        variant: str = "") -> dict | None:
+    f = config.LLM_CACHE_DIR / f"{_key(model, prompt_version, payload, variant)}.json"
     if not f.exists():
         return None
     try:
@@ -28,9 +30,10 @@ def get(model: str, prompt_version: str, payload: str) -> dict | None:
         return None
 
 
-def put(model: str, prompt_version: str, payload: str, value: dict) -> None:
+def put(model: str, prompt_version: str, payload: str, value: dict,
+        variant: str = "") -> None:
     config.LLM_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    f = config.LLM_CACHE_DIR / f"{_key(model, prompt_version, payload)}.json"
+    f = config.LLM_CACHE_DIR / f"{_key(model, prompt_version, payload, variant)}.json"
     f.write_text(json.dumps(value, ensure_ascii=False), encoding="utf-8")
 
 

@@ -98,13 +98,14 @@ def build_payload(email: dict, today: str, mask: bool) -> tuple[str, dict]:
 
 
 def extract_one(client, email: dict, today: str, model: str | None = None,
-                mask: bool | None = None, use_cache: bool = True) -> dict:
+                mask: bool | None = None, use_cache: bool = True,
+                variant: str = "") -> dict:
     """메일 1통을 처리한다. 예외를 밖으로 던지지 않는다."""
     model = model or config.ANTHROPIC_MODEL
     mask = config.MASK_PII if mask is None else mask
     user, norm = build_payload(email, today, mask)
 
-    cached = llm_cache.get(model, PROMPT_VERSION, user) if use_cache else None
+    cached = llm_cache.get(model, PROMPT_VERSION, user, variant) if use_cache else None
     if cached is not None:
         cached["from_cache"] = True
         cached["normalized"] = norm
@@ -153,7 +154,7 @@ def extract_one(client, email: dict, today: str, model: str | None = None,
 
     if use_cache:
         cacheable = {k: v for k, v in out.items() if k != "normalized"}
-        llm_cache.put(model, PROMPT_VERSION, user, cacheable)
+        llm_cache.put(model, PROMPT_VERSION, user, cacheable, variant)
     return out
 
 
