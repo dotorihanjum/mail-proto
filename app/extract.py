@@ -207,8 +207,15 @@ def main() -> None:
 
     elapsed = time.time() - t0
     s = summarize(outs)
-    cost = config.estimate_cost_krw(model, s["입력 토큰"], s["출력 토큰"])
-    live = sum(1 for o in outs if not o["from_cache"])
+    live_outs = [o for o in outs if not o["from_cache"]]
+    live = len(live_outs)
+    # 실제로 돈이 나간 것은 캐시를 쓰지 않은 호출뿐이다.
+    cost = config.estimate_cost_krw(
+        model,
+        sum(o["input_tokens"] for o in live_outs),
+        sum(o["output_tokens"] for o in live_outs),
+    )
+    cost_all = config.estimate_cost_krw(model, s["입력 토큰"], s["출력 토큰"])
 
     print("-" * 64)
     for k, v in s.items():
@@ -218,7 +225,11 @@ def main() -> None:
     if s["실패 종류"]:
         print(f"  {'실패 종류':12s} {s['실패 종류']}")
     print(f"  {'토큰':12s} 입력 {s['입력 토큰']} / 출력 {s['출력 토큰']}")
-    print(f"  {'비용':12s} 약 {cost:.0f}원 (실제 호출 {live}건, {elapsed:.1f}초)")
+    if live == 0:
+        print(f"  {'비용':12s} 0원 (전부 캐시. 캐시가 없었다면 약 {cost_all:.0f}원)")
+    else:
+        print(f"  {'비용':12s} 약 {cost:.0f}원 "
+              f"(실제 호출 {live}건 / 캐시 {len(outs) - live}건, {elapsed:.1f}초)")
 
     # 확인 필요 항목의 사유를 보여준다
     rc: dict[str, int] = {}
