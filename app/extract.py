@@ -240,9 +240,10 @@ def main() -> None:
             for r in it.get("review_reason", []):
                 rc[r] = rc.get(r, 0) + 1
     if rc:
-        print("\n  확인 필요 사유:")
+        # 한 항목이 사유를 여러 개 가질 수 있어서, 사유 합이 항목 수보다 클 수 있다.
+        print(f"\n  확인 필요 {s['확인 필요']}개 항목의 사유 (한 항목에 여러 개일 수 있음):")
         for r, n in sorted(rc.items(), key=lambda x: -x[1]):
-            print(f"    {REASON_TEXT.get(r, r)}: {n}건")
+            print(f"    {REASON_TEXT.get(r, r)}: {n}개 항목에서")
 
     # 결과를 파일로 남긴다 (M4·M6 에서 다시 쓴다)
     config.DATA_DIR.mkdir(exist_ok=True)
