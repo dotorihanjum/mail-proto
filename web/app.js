@@ -222,14 +222,6 @@ document.querySelectorAll('details.sec').forEach((d) => {
   });
 });
 
-$('#btn-expand').addEventListener('click', () => {
-  document.querySelectorAll('details.sec').forEach((d) => { d.open = true; });
-  saveOpen();
-});
-$('#btn-collapse').addEventListener('click', () => {
-  document.querySelectorAll('details.sec').forEach((d) => { d.open = false; });
-  saveOpen();
-});
 $('#btn-seen').addEventListener('click', () => {
   if (!VIEW) return;
   [VIEW.today_top, VIEW.needs_review, VIEW.upcoming, VIEW.anytime || [],
