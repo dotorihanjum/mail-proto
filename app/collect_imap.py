@@ -1,0 +1,199 @@
+"""IMAP 읽기 전용 수집 (SPEC 13장).
+
+절대 지킬 것 (SPEC 9장 안전장치 1)
+  - 메일함을 readonly=True 로 연다
+  - 본문은 BODY.PEEK 으로 가져온다 -> 읽음 표시가 붙지 않는다
+  - 삭제·이동·플래그 변경 코드를 두지 않는다
+  - 본문과 개인정보를 로그·콘솔에 출력하지 않는다 (제목 일부와 id 정도만)
+"""
+
+from __future__ import annotations
+
+import email
+import imaplib
+import re
+from datetime import date, datetime, timedelta
+from email.header import decode_header, make_header
+from email.utils import parsedate_to_datetime
+
+from app import config
+
+
+class ImapError(Exception):
+    """사용자에게 보여줄 한국어 안내를 담는다."""
+
+    def __init__(self, message: str, hints: list[str]):
+        super().__init__(message)
+        self.message = message
+        self.hints = hints
+
+
+def _decode(raw: str | None) -> str:
+    """=?UTF-8?B?...?= 같은 헤더를 사람이 읽을 수 있게 푼다."""
+    if not raw:
+        return ""
+    try:
+        return str(make_header(decode_header(raw)))
+    except (UnicodeDecodeError, LookupError, ValueError):
+        return raw
+
+
+def connect() -> imaplib.IMAP4_SSL:
+    """로그인까지 한다. 실패하면 한국어 안내를 담아 던진다."""
+    if not config.IMAP_USER or not config.IMAP_APP_PASSWORD:
+        raise ImapError(
+            ".env 에 IMAP_USER 와 IMAP_APP_PASSWORD 가 비어 있습니다.",
+            ["`.env` 파일을 열어 학교 메일 주소와 16자리 앱 비밀번호를 넣으세요.",
+             "앱 비밀번호는 띄어쓰기를 빼고 붙여넣습니다."])
+    try:
+        conn = imaplib.IMAP4_SSL(config.IMAP_HOST, 993, timeout=20)
+    except OSError as e:
+        raise ImapError(
+            f"{config.IMAP_HOST} 에 연결하지 못했습니다.",
+            ["인터넷 연결을 확인하세요.",
+             "학교 관리자가 IMAP 접속을 막아 두었을 수 있습니다.",
+             f"기술적 내용: {type(e).__name__}"]) from e
+
+    try:
+        conn.login(config.IMAP_USER, config.IMAP_APP_PASSWORD)
+    except imaplib.IMAP4.error as e:
+        detail = str(e)
+        hints = [
+            "앱 비밀번호를 썼는지 확인하세요. 평소 쓰는 비밀번호로는 안 됩니다.",
+            "띄어쓰기가 섞여 들어가지 않았는지 보세요. 16자여야 합니다.",
+            "2단계 인증이 켜져 있어야 앱 비밀번호가 동작합니다.",
+        ]
+        if "Application-specific password required" in detail:
+            hints.insert(0, "일반 비밀번호를 넣으신 것 같습니다. 앱 비밀번호가 필요합니다.")
+        elif "Invalid credentials" in detail:
+            hints.insert(0, "아이디나 앱 비밀번호가 틀렸습니다.")
+        else:
+            hints.append("학교 정책이 앱 비밀번호를 막았을 수 있습니다 → 경희대 IT Desk 문의")
+        try:
+            conn.logout()
+        except Exception:
+            pass
+        raise ImapError("메일 서버 로그인에 실패했습니다.", hints) from e
+
+    return conn
+
+
+def _body_text(msg: email.message.Message) -> tuple[str, list[str]]:
+    """본문 글자와 첨부 파일 '이름만' 꺼낸다. 첨부 내용은 읽지 않는다."""
+    attachments: list[str] = []
+    plain, html = "", ""
+
+    for part in msg.walk():
+        if part.get_content_maintype() == "multipart":
+            continue
+        disp = str(part.get("Content-Disposition") or "")
+        fname = part.get_filename()
+        if fname or "attachment" in disp:
+            if fname:
+                attachments.append(_decode(fname))
+            continue
+        ctype = part.get_content_type()
+        if ctype not in ("text/plain", "text/html"):
+            continue
+        payload = part.get_payload(decode=True)
+        if not payload:
+            continue
+        charset = part.get_content_charset() or "utf-8"
+        try:
+            text = payload.decode(charset, errors="replace")
+        except LookupError:
+            text = payload.decode("utf-8", errors="replace")
+        if ctype == "text/plain":
+            plain += text
+        else:
+            html += text
+
+    return (plain or html), attachments
+
+
+def fetch_recent(days: int | None = None, limit: int | None = None,
+                 account_name: str = "학교") -> list[dict]:
+    """최근 메일을 읽어 샘플과 같은 모양으로 돌려준다.
+
+    읽음 표시를 건드리지 않는다.
+    """
+    days = days if days is not None else config.IMAP_RECENT_DAYS
+    limit = limit if limit is not None else config.IMAP_MAX_MESSAGES
+
+    conn = connect()
+    out: list[dict] = []
+    try:
+        # readonly=True : 이 연결로는 어떤 변경도 일어나지 않는다
+        typ, _ = conn.select("INBOX", readonly=True)
+        if typ != "OK":
+            raise ImapError("받은편지함을 열지 못했습니다.",
+                            ["메일함 이름이 다를 수 있습니다."])
+
+        since = (date.today() - timedelta(days=days)).strftime("%d-%b-%Y")
+        typ, data = conn.search(None, f'(SINCE "{since}")')
+        if typ != "OK":
+            raise ImapError("메일 검색에 실패했습니다.", ["잠시 후 다시 시도해 보세요."])
+
+        ids = data[0].split()
+        ids = ids[-limit:] if limit else ids
+
+        for num in ids:
+            # BODY.PEEK : 읽음 표시(\Seen)를 붙이지 않고 가져온다
+            typ, raw = conn.fetch(num, "(BODY.PEEK[])")
+            if typ != "OK" or not raw or not isinstance(raw[0], tuple):
+                continue
+            msg = email.message_from_bytes(raw[0][1])
+            body, attach = _body_text(msg)
+
+            try:
+                received = parsedate_to_datetime(msg.get("Date")).astimezone()
+            except (TypeError, ValueError):
+                received = datetime.now().astimezone()
+
+            mid = _decode(msg.get("Message-ID")) or f"<no-id-{num.decode()}>"
+            out.append({
+                "id": f"k{num.decode()}",
+                "account": account_name,
+                "source": "imap",
+                "message_id": mid,
+                "received_at": received.isoformat(timespec="seconds"),
+                "sender": _decode(msg.get("From")),
+                "subject": _decode(msg.get("Subject")) or "(제목 없음)",
+                "body_text": body,
+                "attachment_names": attach,
+            })
+    finally:
+        try:
+            conn.close()
+            conn.logout()
+        except Exception:
+            pass
+
+    out.sort(key=lambda e: e["received_at"])
+    return out
+
+
+def flag_report(days: int, limit: int) -> list[dict]:
+    """읽음/안읽음 상태만 확인한다. 본문을 가져오지 않는다.
+
+    BODY.PEEK 이 정말로 읽음 표시를 건드리지 않았는지 대조하는 용도다.
+    """
+    conn = connect()
+    rows: list[dict] = []
+    try:
+        conn.select("INBOX", readonly=True)
+        since = (date.today() - timedelta(days=days)).strftime("%d-%b-%Y")
+        typ, data = conn.search(None, f'(SINCE "{since}")')
+        ids = data[0].split()[-limit:] if typ == "OK" else []
+        for num in ids:
+            typ, d = conn.fetch(num, "(FLAGS)")
+            flags = d[0].decode(errors="replace") if typ == "OK" and d and d[0] else ""
+            rows.append({"id": num.decode(),
+                         "읽음": "\\Seen" in flags})
+    finally:
+        try:
+            conn.close()
+            conn.logout()
+        except Exception:
+            pass
+    return rows
