@@ -172,6 +172,8 @@ def main() -> None:
     ap.add_argument("--no-cache", action="store_true", help="캐시를 쓰지 않고 다시 호출")
     ap.add_argument("--model", default=None, help="모델 이름 (기본: .env 값)")
     ap.add_argument("--only", default=None, help="특정 메일만 (예: m06,m08)")
+    ap.add_argument("--source", default="sample", choices=["sample", "imap"],
+                    help="sample=가짜 샘플 30통 / imap=실제 메일")
     args = ap.parse_args()
 
     if not config.ANTHROPIC_API_KEY:
@@ -179,13 +181,20 @@ def main() -> None:
         sys.exit(1)
 
     model = args.model or config.ANTHROPIC_MODEL
-    data = json.loads((config.SAMPLES_DIR / "emails.json").read_text(encoding="utf-8"))
-    emails = data["emails"]
+    if args.source == "imap":
+        from app.collect_imap import fetch_recent
+        print("\n  실제 메일을 가져오는 중입니다 (읽기 전용)...", flush=True)
+        emails = fetch_recent(days=0, limit=0)
+        print(f"  {len(emails)}통 가져옴")
+    else:
+        data = json.loads(
+            (config.SAMPLES_DIR / "emails.json").read_text(encoding="utf-8"))
+        emails = data["emails"]
     if args.only:
         want = {s.strip() for s in args.only.split(",")}
         emails = [e for e in emails if e["id"] in want]
 
-    today = str(config.today_for("sample"))
+    today = str(config.today_for(args.source))
     client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
 
     print(f"\n모델 {model} / 기준일 {today} / 메일 {len(emails)}통")
@@ -205,8 +214,8 @@ def main() -> None:
         mark = "  " if out["status"] == "success" else "X "
         cache = "(캐시)" if out["from_cache"] else "      "
         n = len(out["result"]["items"]) if out["status"] == "success" else 0
-        # 본문·개인정보는 출력하지 않는다. 제목 일부만. (CLAUDE.md 규칙 4)
-        title = e["subject"][:32]
+        # 실제 메일은 제목도 찍지 않는다. 이 대화를 통해 밖으로 나가기 때문이다.
+        title = e["subject"][:32] if args.source == "sample" else "(제목 숨김)"
         print(f"{mark}{e['id']} {cache} 항목 {n}개  {title}")
         if out["status"] != "success":
             print(f"     -> 정리 실패({out['fail_kind']}): {out['error_message']}")
@@ -254,7 +263,8 @@ def main() -> None:
     # 결과를 파일로 남긴다 (M4·M6 에서 다시 쓴다)
     config.DATA_DIR.mkdir(exist_ok=True)
     slim = [{k: v for k, v in o.items() if k != "normalized"} for o in outs]
-    path = config.DATA_DIR / f"extract_{model}.json"
+    suffix = "" if args.source == "sample" else f"_{args.source}"
+    path = config.DATA_DIR / f"extract{suffix}_{model}.json"
     path.write_text(json.dumps(
         {"model": model, "today": today, "outputs": slim},
         ensure_ascii=False, indent=2), encoding="utf-8")

@@ -66,6 +66,10 @@ cd /Users/lwj/Desktop/claude/mail_proto && ./.venv/bin/pip install -r requiremen
 | `./.venv/bin/python -m app.evaluate --model claude-sonnet-5` | M6 — 다른 모델로 비교 |
 | `./.venv/bin/python -m pytest` | M4 — 규칙 엔진 테스트 (56개, AI 안 씀, 0원) |
 | `./.venv/bin/uvicorn app.main:app --port 8000` | M5 — 웹 화면. 브라우저에서 http://127.0.0.1:8000 열기 (끌 때는 Ctrl+C) |
+| `./.venv/bin/python check_imap.py` | M7 — 경희대 메일 연결 시험 (AI 전송 없음) |
+| `./.venv/bin/python scan_imap.py` | M7 — 받은편지함 목록 만들기 (AI 전송 없음) |
+| `./.venv/bin/python -m app.extract --source imap` | M7 — 실제 메일을 AI로 정리 |
+| `./.venv/bin/python report_imap.py` | M7 — 실제 메일 결과를 대조용 파일로 |
 
 ---
 
@@ -79,7 +83,7 @@ cd /Users/lwj/Desktop/claude/mail_proto && ./.venv/bin/pip install -r requiremen
 | M4 | 규칙 엔진 + 테스트 | 완료 |
 | M5 | 웹 화면 | 완료 |
 | M6 | 평가 리포트 | 완료 (haiku) |
-| M7 | 경희대 메일 연동 | 예정 |
+| M7 | 경희대 메일 연동 | 완료 |
 
 ---
 

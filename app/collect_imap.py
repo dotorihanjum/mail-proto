@@ -141,8 +141,12 @@ def fetch_recent(days: int | None = None, limit: int | None = None,
             raise ImapError("받은편지함을 열지 못했습니다.",
                             ["메일함 이름이 다를 수 있습니다."])
 
-        since = (date.today() - timedelta(days=days)).strftime("%d-%b-%Y")
-        typ, data = conn.search(None, f'(SINCE "{since}")')
+        if days and days > 0:
+            since = (date.today() - timedelta(days=days)).strftime("%d-%b-%Y")
+            criteria = f'(SINCE "{since}")'
+        else:
+            criteria = "ALL"   # days=0 이면 받은편지함 전체
+        typ, data = conn.search(None, criteria)
         if typ != "OK":
             raise ImapError("메일 검색에 실패했습니다.", ["잠시 후 다시 시도해 보세요."])
 
