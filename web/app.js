@@ -7,6 +7,46 @@ const esc = (s) => String(s ?? '').replace(/[&<>"]/g,
 
 let VIEW = null;
 
+// ── "안 본 메일" 표시 ────────────────────────────────────────────
+// 이 브라우저에서 아직 펼쳐 보지 않은 메일을 NEW 로 띄운다.
+// localStorage 라서 이 브라우저에만 남는다. 지워져도 화면은 정상 동작한다.
+let SEEN = new Set();
+let FIRST_TIME = false;
+
+function seenKey() { return `seen:${SRC()}`; }
+
+function loadSeen() {
+  try {
+    const raw = localStorage.getItem(seenKey());
+    FIRST_TIME = raw === null;
+    SEEN = new Set(raw ? JSON.parse(raw) : []);
+  } catch (e) { FIRST_TIME = false; SEEN = new Set(); }
+}
+
+function saveSeen() {
+  try { localStorage.setItem(seenKey(), JSON.stringify([...SEEN])); } catch (e) {}
+}
+
+// 항목이 어떤 메일에서 왔는지 (중복 병합된 것은 여러 개)
+function idsOf(x) {
+  if (x.sources && x.sources.length) return x.sources.map((s) => s.email_id);
+  return x.email_id ? [x.email_id] : [];
+}
+
+function isNew(x) {
+  if (FIRST_TIME) return false;   // 처음 여는 브라우저라면 전부 NEW 로 뜨면 곤란하다
+  return idsOf(x).some((id) => !SEEN.has(id));
+}
+
+function newTag(x) {
+  return isNew(x) ? '<span class="new-badge">NEW</span>' : '';
+}
+
+function markSeen(list) {
+  list.forEach((x) => idsOf(x).forEach((id) => SEEN.add(id)));
+  saveSeen();
+}
+
 // ── 공통 ──────────────────────────────────────────────────────────
 function say(msg, isErr) {
   const el = $('#status');
@@ -32,7 +72,7 @@ function deadlineText(it) {
 function card(it) {
   return `<div class="card p${it.priority}">
     <div class="dday p${it.priority}">${ddayText(it.dday)} · ${esc(it.priority_text)}</div>
-    <div class="title">${esc(it.title)}</div>
+    <div class="title">${newTag(it)}${esc(it.title)}</div>
     <div class="meta">${esc(deadlineText(it))}</div>
     <div class="meta">원문 표현: ${esc(it.deadline_text || '—')}</div>
     <div class="evidence">${esc(it.evidence)}</div>
@@ -60,7 +100,7 @@ function row(it, kind) {
            data-title="${esc(it.title)}"
            data-deadline="${esc((it.deadline_iso || '').slice(0, 10))}">
     <div class="grow">
-      <div class="title">${esc(it.title)}</div>
+      <div class="title">${newTag(it)}${esc(it.title)}</div>
       <div class="meta">${esc(deadlineText(it))} · 원문 표현: ${esc(it.deadline_text || '—')}</div>
       <div>${tags.join('')}</div>
       <div class="evidence">${esc(it.evidence)}</div>
@@ -77,34 +117,25 @@ function render() {
   $('#counts').innerHTML = Object.entries(v.counts)
     .map(([k, n]) => `${k} <b>${n}</b>`).join(' · ');
 
-  $('#today-top').innerHTML = v.today_top.length
-    ? v.today_top.map(card).join('')
-    : `<div class="empty">지금 급한 할 일이 없습니다.</div>`;
-
   const put = (id, arr, kind, emptyMsg) => {
     $(id).innerHTML = arr.length
       ? arr.map((it) => row(it, kind)).join('')
       : `<div class="empty">${emptyMsg}</div>`;
   };
+  $('#today-top').innerHTML = v.today_top.length
+    ? v.today_top.map(card).join('')
+    : `<div class="empty">지금 급한 할 일이 없습니다.</div>`;
   put('#review', v.needs_review, 'rev', '확인이 필요한 항목이 없습니다.');
   put('#upcoming', v.upcoming, '', '다가오는 마감이 없습니다.');
   put('#anytime', v.anytime || [], 'anytime', '기한 없는 할 일이 없습니다.');
   put('#overdue', v.overdue, 'over', '지난 마감이 없습니다.');
 
-  $('#n-review').textContent = v.counts['확인 필요'];
-  $('#n-upcoming').textContent = v.upcoming.length;
-  $('#n-anytime').textContent = (v.anytime || []).length;
-  $('#n-verification').textContent = (v.verification || []).length;
-  $('#n-overdue').textContent = v.counts['지남'];
-
   $('#verification').innerHTML = (v.verification || []).map((r) => `<div class="row verif">
-      <div class="grow"><div class="title">${esc(r.subject)}</div>
+      <div class="grow"><div class="title">${newTag(r)}${esc(r.subject)}</div>
       <div class="meta">${esc(r.account)} · ${esc(r.received_at)}</div>
       <div class="meta">${esc(r.summary)}</div>
       <div><button class="link" data-email="${esc(r.email_id)}">원문에서 코드 확인</button></div>
       </div></div>`).join('') || '<div class="empty">인증 메일이 없습니다.</div>';
-  $('#n-reference').textContent = v.counts['참고용'];
-  $('#n-failed').textContent = v.counts['정리 실패'];
 
   $('#reference').innerHTML = v.reference.map((r) => `<div class="row">
       <div class="grow"><div class="title">${esc(r.subject)}</div>
@@ -119,7 +150,93 @@ function render() {
       <div class="meta">정리 실패(${esc(f.fail_kind)}) — ${esc(f.error_message)}</div>
       <div><button class="link" data-email="${esc(f.email_id)}">직접 확인하기</button></div>
       </div></div>`).join('') || '<div class="empty">정리에 실패한 메일이 없습니다.</div>';
+
+  // 섹션별 개수와 NEW 배지.
+  // 참고용·정리 실패는 NEW 를 띄우지 않는다 (알림 가치가 없다).
+  const sections = {
+    today: v.today_top,
+    review: v.needs_review,
+    upcoming: v.upcoming,
+    anytime: v.anytime || [],
+    verification: v.verification || [],
+    overdue: v.overdue,
+    reference: v.reference,
+    failed: v.failed,
+  };
+  const noNew = new Set(['reference', 'failed']);
+
+  Object.entries(sections).forEach(([key, arr]) => {
+    const c = document.querySelector(`[data-count="${key}"]`);
+    if (c) c.textContent = arr.length;
+    const badge = document.querySelector(`[data-new="${key}"]`);
+    if (!badge) return;
+    const n = noNew.has(key) ? 0 : arr.filter(isNew).length;
+    badge.textContent = n > 1 ? `NEW ${n}` : 'NEW';
+    badge.classList.toggle('hidden', n === 0);
+  });
+
+  // 펼쳐 둔 섹션의 항목은 본 것으로 친다.
+  // 지금 화면의 배지는 그대로 두고, 다음에 열 때 사라진다.
+  document.querySelectorAll('details.sec[open]').forEach((d) => {
+    const key = d.dataset.sec;
+    if (!noNew.has(key) && sections[key]) markSeen(sections[key]);
+  });
+
+  // 처음 여는 브라우저면 지금 것을 전부 본 것으로 기록해 둔다
+  if (FIRST_TIME) {
+    Object.entries(sections).forEach(([k, arr]) => {
+      if (!noNew.has(k)) markSeen(arr);
+    });
+    FIRST_TIME = false;
+  }
 }
+
+// ── 섹션 접기/펼치기 상태 기억 ───────────────────────────────────
+function secKey() { return `open:${SRC()}`; }
+
+function restoreOpen() {
+  let saved = null;
+  try {
+    const raw = localStorage.getItem(secKey());
+    if (raw) saved = new Set(JSON.parse(raw));
+  } catch (e) {}
+  if (!saved) return;
+  document.querySelectorAll('details.sec').forEach((d) => {
+    d.open = saved.has(d.dataset.sec);
+  });
+}
+
+function saveOpen() {
+  try {
+    const open = [...document.querySelectorAll('details.sec')]
+      .filter((d) => d.open).map((d) => d.dataset.sec);
+    localStorage.setItem(secKey(), JSON.stringify(open));
+  } catch (e) {}
+}
+
+document.querySelectorAll('details.sec').forEach((d) => {
+  d.addEventListener('toggle', () => {
+    saveOpen();
+    // 펼칠 때 그 섹션을 본 것으로 기록한다
+    if (d.open && VIEW) render();
+  });
+});
+
+$('#btn-expand').addEventListener('click', () => {
+  document.querySelectorAll('details.sec').forEach((d) => { d.open = true; });
+  saveOpen();
+});
+$('#btn-collapse').addEventListener('click', () => {
+  document.querySelectorAll('details.sec').forEach((d) => { d.open = false; });
+  saveOpen();
+});
+$('#btn-seen').addEventListener('click', () => {
+  if (!VIEW) return;
+  [VIEW.today_top, VIEW.needs_review, VIEW.upcoming, VIEW.anytime || [],
+   VIEW.verification || [], VIEW.overdue].forEach(markSeen);
+  render();
+  say('NEW 표시를 모두 지웠습니다.');
+});
 
 // ── 서버 통신 ─────────────────────────────────────────────────────
 async function load() {
@@ -130,6 +247,8 @@ async function load() {
     return;
   }
   VIEW = v;
+  loadSeen();      // 데이터를 바꿀 때마다 그 소스의 '본 목록'을 읽는다
+  restoreOpen();   // 접어 둔 섹션을 기억한다
   clearSay();
   render();
 }

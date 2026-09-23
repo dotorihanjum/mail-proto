@@ -34,46 +34,68 @@
 </header>
 
 <main>
-  <section>
-    <h2>오늘 할 일 3가지</h2>
-    <div id="today-top" class="cards"></div>
-  </section>
+  <div class="tools">
+    <button id="btn-expand" class="mini">모두 펼치기</button>
+    <button id="btn-collapse" class="mini">모두 접기</button>
+    <button id="btn-seen" class="mini">NEW 모두 지우기</button>
+  </div>
 
-  <section>
-    <h2>확인 필요 <span id="n-review" class="badge"></span></h2>
+  <details class="sec" data-sec="today" open>
+    <summary><span class="stitle">오늘 할 일 3가지</span>
+      <span class="badge" data-count="today"></span>
+      <span class="new-badge hidden" data-new="today">NEW</span></summary>
+    <div id="today-top" class="cards"></div>
+  </details>
+
+  <details class="sec" data-sec="review" open>
+    <summary><span class="stitle">확인 필요</span>
+      <span class="badge" data-count="review"></span>
+      <span class="new-badge hidden" data-new="review">NEW</span></summary>
     <p class="hint">AI가 확신하지 못했거나 계산이 어긋난 항목입니다. 사라지지 않고 여기 남습니다.</p>
     <div id="review" class="list"></div>
-  </section>
+  </details>
 
-  <section>
-    <h2>마감 목록 <span id="n-upcoming" class="badge"></span></h2>
+  <details class="sec" data-sec="upcoming" open>
+    <summary><span class="stitle">마감 목록</span>
+      <span class="badge" data-count="upcoming"></span>
+      <span class="new-badge hidden" data-new="upcoming">NEW</span></summary>
     <div id="upcoming" class="list"></div>
-  </section>
+  </details>
 
-  <section>
-    <h2>언제든 하면 되는 일 <span id="n-anytime" class="badge"></span></h2>
+  <details class="sec" data-sec="anytime" open>
+    <summary><span class="stitle">언제든 하면 되는 일</span>
+      <span class="badge" data-count="anytime"></span>
+      <span class="new-badge hidden" data-new="anytime">NEW</span></summary>
     <p class="hint">기한이 따로 없는 할 일입니다. 마감을 못 찾은 것이 아니라 원래 없는 것입니다.</p>
     <div id="anytime" class="list"></div>
-  </section>
+  </details>
 
-  <section>
-    <h2>인증·보안 메일 <span id="n-verification" class="badge"></span></h2>
+  <details class="sec" data-sec="verification" open>
+    <summary><span class="stitle">인증·보안 메일</span>
+      <span class="badge" data-count="verification"></span>
+      <span class="new-badge hidden" data-new="verification">NEW</span></summary>
     <p class="hint">받는 즉시 쓰는 메일이라 할 일로 두지 않습니다. 필요할 때 여기서 찾으세요. 최신순.</p>
     <div id="verification" class="list"></div>
-  </section>
+  </details>
 
-  <section>
-    <h2>지난 마감 <span id="n-overdue" class="badge"></span></h2>
+  <details class="sec" data-sec="overdue">
+    <summary><span class="stitle">지난 마감</span>
+      <span class="badge" data-count="overdue"></span>
+      <span class="new-badge hidden" data-new="overdue">NEW</span></summary>
     <div id="overdue" class="list"></div>
-  </section>
+  </details>
 
-  <section>
-    <details>
-      <summary>참고용 메일 <span id="n-reference" class="badge"></span> · 정리 실패 <span id="n-failed" class="badge"></span></summary>
-      <div id="reference" class="list"></div>
-      <div id="failed" class="list"></div>
-    </details>
-  </section>
+  <details class="sec" data-sec="reference">
+    <summary><span class="stitle">참고용 메일</span>
+      <span class="badge" data-count="reference"></span></summary>
+    <div id="reference" class="list"></div>
+  </details>
+
+  <details class="sec" data-sec="failed">
+    <summary><span class="stitle">정리 실패</span>
+      <span class="badge" data-count="failed"></span></summary>
+    <div id="failed" class="list"></div>
+  </details>
 </main>
 
 <div id="modal" class="modal hidden">

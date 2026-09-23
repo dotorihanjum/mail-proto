@@ -77,6 +77,26 @@ pre{margin:13px 18px 18px;padding:13px;background:#f7f8fa;border-radius:7px;
 mark{background:#fde68a;padding:1px 0}
 .empty{color:var(--muted);font-size:13.5px;padding:11px 2px}
 
+.tools{display:flex;gap:7px;margin-bottom:14px}
+.mini{font-size:12.5px;padding:5px 10px}
+details.sec{background:transparent;margin-bottom:12px}
+details.sec>summary{display:flex;align-items:center;gap:8px;cursor:pointer;
+  font-size:15.5px;font-weight:700;padding:7px 2px;list-style:none;
+  border-bottom:1px solid var(--line)}
+details.sec>summary::-webkit-details-marker{display:none}
+details.sec>summary::before{content:'▸';font-size:12px;color:var(--muted);
+  transition:transform .12s;display:inline-block}
+details.sec[open]>summary::before{transform:rotate(90deg)}
+details.sec>summary:hover{background:#f0f2f5;border-radius:6px}
+details.sec .stitle{flex:none}
+details.sec>summary .badge{margin-right:auto}
+details.sec>.list,details.sec>.cards{margin-top:11px}
+details.sec>.hint{margin-top:9px}
+.new-badge{display:inline-block;background:#dc2626;color:#fff;font-size:10.5px;
+  font-weight:700;padding:1px 6px;border-radius:9px;letter-spacing:.3px;
+  vertical-align:middle;margin-right:6px}
+.title .new-badge{margin-right:7px}
+
 .newmail{margin-top:10px;padding:10px 13px;border-radius:7px;background:#dcfce7;
   color:#14532d;font-size:14px;display:flex;align-items:center;gap:11px}
 .newmail button{background:#15803d;color:#fff;border-color:#15803d}
