@@ -178,8 +178,7 @@ function render() {
   // 펼쳐 둔 섹션의 항목은 본 것으로 친다.
   // 지금 화면의 배지는 그대로 두고, 다음에 열 때 사라진다.
   document.querySelectorAll('details.sec[open]').forEach((d) => {
-    const key = d.dataset.sec;
-    if (!noNew.has(key) && sections[key]) markSeen(sections[key]);
+    if (!noNew.has(d.dataset.sec)) markSectionSeen(d.dataset.sec);
   });
 
   // 처음 여는 브라우저면 지금 것을 전부 본 것으로 기록해 둔다
@@ -191,43 +190,50 @@ function render() {
   }
 }
 
-// ── 섹션 접기/펼치기 상태 기억 ───────────────────────────────────
-function secKey() { return `open:${SRC()}`; }
-
-function restoreOpen() {
-  let saved = null;
-  try {
-    const raw = localStorage.getItem(secKey());
-    if (raw) saved = new Set(JSON.parse(raw));
-  } catch (e) {}
-  if (!saved) return;
+// ── 섹션 접기/펼치기 ─────────────────────────────────────────────
+// 화면을 열 때는 언제나 '오늘 할 일'만 펼쳐 둔다.
+// 접어 둔 상태를 기억하면, 지난번에 펼쳐 둔 섹션 때문에
+// 새 메일이 와도 NEW 가 바로 지워져 버린다.
+function resetOpen() {
   document.querySelectorAll('details.sec').forEach((d) => {
-    d.open = saved.has(d.dataset.sec);
+    d.open = d.dataset.sec === 'today';
   });
 }
 
-function saveOpen() {
-  try {
-    const open = [...document.querySelectorAll('details.sec')]
-      .filter((d) => d.open).map((d) => d.dataset.sec);
-    localStorage.setItem(secKey(), JSON.stringify(open));
-  } catch (e) {}
+// 펼치면 그 섹션을 본 것으로 기록한다.
+// 여기서 다시 그리지 않는다. 다시 그리면 이미 펼친 다른 섹션의
+// NEW 배지가 그 자리에서 사라져 버린다.
+function markSectionSeen(key) {
+  if (!VIEW) return;
+  const map = {
+    today: VIEW.today_top, review: VIEW.needs_review, upcoming: VIEW.upcoming,
+    anytime: VIEW.anytime || [], verification: VIEW.verification || [],
+    overdue: VIEW.overdue,
+  };
+  if (map[key]) markSeen(map[key]);
 }
 
 document.querySelectorAll('details.sec').forEach((d) => {
   d.addEventListener('toggle', () => {
-    saveOpen();
-    // 펼칠 때 그 섹션을 본 것으로 기록한다
-    if (d.open && VIEW) render();
+    if (d.open) markSectionSeen(d.dataset.sec);
   });
 });
 
-$('#btn-seen').addEventListener('click', () => {
-  if (!VIEW) return;
-  [VIEW.today_top, VIEW.needs_review, VIEW.upcoming, VIEW.anytime || [],
-   VIEW.verification || [], VIEW.overdue].forEach(markSeen);
-  render();
-  say('NEW 표시를 모두 지웠습니다.');
+$('#btn-checknew').addEventListener('click', () => {
+  const targets = [...document.querySelectorAll('[data-new]')]
+    .filter((b) => !b.classList.contains('hidden'))
+    .map((b) => b.closest('details.sec'))
+    .filter(Boolean);
+
+  if (!targets.length) {
+    say('새 메일이 없습니다.');
+    return;
+  }
+  targets.forEach((d) => { d.open = true; });
+  targets[0].scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const names = targets
+    .map((d) => d.querySelector('.stitle').textContent).join(', ');
+  say(`새 메일이 있는 분류를 펼쳤습니다 — ${names}`);
 });
 
 // ── 서버 통신 ─────────────────────────────────────────────────────
@@ -239,8 +245,8 @@ async function load() {
     return;
   }
   VIEW = v;
-  loadSeen();      // 데이터를 바꿀 때마다 그 소스의 '본 목록'을 읽는다
-  restoreOpen();   // 접어 둔 섹션을 기억한다
+  loadSeen();   // 데이터를 바꿀 때마다 그 소스의 '본 목록'을 읽는다
+  resetOpen();  // 언제나 '오늘 할 일'만 펼친 상태로 시작한다
   clearSay();
   render();
 }
