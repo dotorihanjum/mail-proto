@@ -139,13 +139,15 @@ async function runExtract() {
   btn.disabled = true;
   say('AI로 정리하는 중입니다… 캐시가 없으면 1분 정도 걸립니다.');
   try {
-    const r = await fetch('/api/extract', { method: 'POST' });
+    const r = await fetch(`/api/extract?source=${SRC()}`, { method: 'POST' });
     if (!r.ok) throw new Error((await r.json()).detail || '서버 오류');
     const d = await r.json();
     await load();
     say(`정리 완료 — 메일 ${d.요약['메일']}통, 할 일 ${d.요약['항목']}개, ` +
         `확인 필요 ${d.요약['확인 필요']}개, 정리 실패 ${d.요약['정리 실패']}건 ` +
-        `(실제 호출 ${d['실제 호출']}건, ${d.비용원}원)`);
+        (d['실제 호출'] === 0
+          ? '(전부 캐시, 0원)'
+          : `(새로 처리 ${d['실제 호출']}건, ${d.비용원}원)`));
   } catch (e) {
     say(`정리에 실패했습니다: ${e.message}`, true);
   } finally {
@@ -219,8 +221,25 @@ document.addEventListener('change', (ev) => {
   if (ev.target.matches('input[type=checkbox][data-key]')) toggle(ev.target);
 });
 $('#btn-extract').addEventListener('click', runExtract);
-$('#btn-fetch').addEventListener('click', () => {
-  say('샘플 메일 30통을 사용합니다. 실제 메일 가져오기는 M7에서 열립니다.');
+$('#btn-fetch').addEventListener('click', async () => {
+  const btn = $('#btn-fetch');
+  btn.disabled = true;
+  say(SRC() === 'imap'
+    ? '메일을 가져오는 중입니다… 읽음 표시는 건드리지 않습니다.'
+    : '샘플을 불러오는 중입니다…');
+  try {
+    const r = await fetch(`/api/fetch?source=${SRC()}`, { method: 'POST' });
+    if (!r.ok) throw new Error((await r.json()).detail || '서버 오류');
+    const d = await r.json();
+    await load();
+    say(d['새 메일'] > 0
+      ? `${d['말']} [AI로 정리] 를 누르면 새 메일만 처리합니다.`
+      : d['말']);
+  } catch (e) {
+    say(`메일을 가져오지 못했습니다: ${e.message}`, true);
+  } finally {
+    btn.disabled = false;
+  }
 });
 $('#source').addEventListener('change', (ev) => {
   load();
