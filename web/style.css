@@ -77,6 +77,12 @@ pre{margin:13px 18px 18px;padding:13px;background:#f7f8fa;border-radius:7px;
 mark{background:#fde68a;padding:1px 0}
 .empty{color:var(--muted);font-size:13.5px;padding:11px 2px}
 
+.newmail{margin-top:10px;padding:10px 13px;border-radius:7px;background:#dcfce7;
+  color:#14532d;font-size:14px;display:flex;align-items:center;gap:11px}
+.newmail button{background:#15803d;color:#fff;border-color:#15803d}
+.newmail button:hover{background:#166534}
+#watch-wrap{display:flex;align-items:center;gap:6px;cursor:pointer}
+#watch-wrap input{width:15px;height:15px;margin:0}
 .row.anytime{border-left:4px solid #0d9488}
 .row.verif{border-left:4px solid #64748b}
 

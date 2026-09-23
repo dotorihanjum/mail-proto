@@ -213,3 +213,100 @@ def flag_report(days: int, limit: int) -> list[dict]:
         except Exception:
             pass
     return rows
+
+
+# ── 증분 수집 (UID 기준) ──────────────────────────────────────────
+# 받은편지함을 매번 통째로 읽으면 메일이 쌓일수록 느려진다.
+# IMAP 의 UID 는 메일함 안에서 증가만 하므로, 마지막으로 본 UID 뒤쪽만
+# 가져오면 된다. 단 UIDVALIDITY 가 바뀌면 UID 가 전부 무효가 되므로
+# 그때는 전체를 다시 읽는다.
+
+def _state_path():
+    return config.DATA_DIR / "imap_state.json"
+
+
+def load_state() -> dict:
+    import json
+    p = _state_path()
+    if not p.exists():
+        return {}
+    try:
+        return json.loads(p.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def save_state(uidvalidity: int, last_uid: int) -> None:
+    import json
+    config.DATA_DIR.mkdir(exist_ok=True)
+    _state_path().write_text(
+        json.dumps({"uidvalidity": uidvalidity, "last_uid": last_uid}),
+        encoding="utf-8")
+
+
+def _msg_to_dict(num: bytes, msg, account_name: str) -> dict:
+    body, attach = _body_text(msg)
+    try:
+        received = parsedate_to_datetime(msg.get("Date")).astimezone()
+    except (TypeError, ValueError):
+        received = datetime.now().astimezone()
+    mid = _decode(msg.get("Message-ID")) or f"<no-id-{num.decode()}>"
+    return {
+        "id": f"k{num.decode()}",
+        "account": account_name,
+        "source": "imap",
+        "message_id": mid,
+        "received_at": received.isoformat(timespec="seconds"),
+        "sender": _decode(msg.get("From")),
+        "subject": _decode(msg.get("Subject")) or "(제목 없음)",
+        "body_text": body,
+        "attachment_names": attach,
+    }
+
+
+def fetch_incremental(account_name: str = "학교") -> tuple[list[dict], bool]:
+    """마지막으로 읽은 뒤에 온 메일만 가져온다.
+
+    돌려주는 값: (메일 목록, 전체를 다시 읽었는가)
+    읽음 표시는 건드리지 않는다.
+    """
+    conn = connect()
+    out: list[dict] = []
+    try:
+        conn.select("INBOX", readonly=True)
+        raw = conn.response("UIDVALIDITY")[1]
+        uidvalidity = int(raw[0]) if raw and raw[0] else 0
+
+        state = load_state()
+        last_uid = int(state.get("last_uid", 0))
+        # UIDVALIDITY 가 달라졌다면 예전 UID 는 못 믿는다 -> 전부 다시
+        full = state.get("uidvalidity") != uidvalidity or last_uid <= 0
+
+        if full:
+            typ, data = conn.uid("search", None, "ALL")
+        else:
+            typ, data = conn.uid("search", None, f"UID {last_uid + 1}:*")
+        if typ != "OK":
+            raise ImapError("메일 검색에 실패했습니다.", ["잠시 후 다시 시도해 보세요."])
+
+        uids = [u for u in data[0].split() if int(u) > last_uid or full]
+        for uid in uids:
+            typ, raw2 = conn.uid("fetch", uid, "(BODY.PEEK[])")
+            if typ != "OK" or not raw2 or not isinstance(raw2[0], tuple):
+                continue
+            out.append(_msg_to_dict(uid, email.message_from_bytes(raw2[0][1]),
+                                    account_name))
+
+        if uids:
+            save_state(uidvalidity, max(int(u) for u in uids))
+        elif full:
+            save_state(uidvalidity, last_uid)
+    finally:
+        try:
+            conn.close()
+            conn.logout()
+        except Exception:
+            pass
+
+    out.sort(key=lambda e: e["received_at"])
+    return out, full

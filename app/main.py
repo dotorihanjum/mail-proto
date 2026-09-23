@@ -11,7 +11,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from app import config, db, service
+from app import config, db, service, watcher
 
 app = FastAPI(title="메일 → 할 일 정리 (프로토타입)")
 WEB = config.ROOT / "web"
@@ -63,25 +63,39 @@ def api_fetch(source: str = "sample") -> dict:
         return {"ok": True, "총": n, "새 메일": 0,
                 "말": f"샘플 {n}통을 씁니다."}
 
-    from app.collect_imap import ImapError, fetch_recent
+    from app.collect_imap import ImapError, fetch_incremental
 
     cache = config.DATA_DIR / "emails_imap.json"
-    before = set()
+    kept = []
     if cache.exists():
-        before = {m["message_id"] for m in
-                  json.loads(cache.read_text(encoding="utf-8"))["emails"]}
+        kept = json.loads(cache.read_text(encoding="utf-8"))["emails"]
+
     try:
-        mails = fetch_recent(days=0, limit=0)
+        # 마지막으로 읽은 뒤에 온 것만 가져온다. 전체를 다시 읽지 않는다.
+        fresh, was_full = fetch_incremental()
     except ImapError as e:
         raise HTTPException(400, e.message + " — " + " / ".join(e.hints))
 
-    new = [m for m in mails if m["message_id"] not in before]
+    if was_full:
+        mails = fresh
+        new_n = len(fresh) - len(kept)
+    else:
+        seen = {m["message_id"] for m in kept}
+        added = [m for m in fresh if m["message_id"] not in seen]
+        mails = kept + added
+        new_n = len(added)
+    mails.sort(key=lambda m: m["received_at"])
+
     config.DATA_DIR.mkdir(exist_ok=True)
     cache.write_text(json.dumps({"emails": mails}, ensure_ascii=False, indent=2),
                      encoding="utf-8")
-    return {"ok": True, "총": len(mails), "새 메일": len(new),
-            "말": (f"새 메일 {len(new)}통을 포함해 {len(mails)}통을 가져왔습니다."
-                  if new else f"{len(mails)}통. 새 메일은 없습니다.")}
+
+    # 가져왔으니 감시기의 신호를 지운다
+    watcher.acknowledge()
+
+    return {"ok": True, "총": len(mails), "새 메일": max(new_n, 0),
+            "말": (f"새 메일 {new_n}통을 포함해 {len(mails)}통이 되었습니다."
+                  if new_n > 0 else f"{len(mails)}통. 새 메일은 없습니다.")}
 
 
 @app.post("/api/extract")
@@ -132,6 +146,22 @@ def api_extract(no_cache: bool = False, source: str = "sample") -> dict:
     s = summarize(outs)
     return {"ok": True, "요약": {k: v for k, v in s.items() if k != "실패 종류"},
             "실제 호출": len(live), "비용원": round(cost)}
+
+
+# ── 새 메일 실시간 감시 ───────────────────────────────────────────
+@app.post("/api/watch/start")
+def api_watch_start() -> dict:
+    return watcher.start()
+
+
+@app.post("/api/watch/stop")
+def api_watch_stop() -> dict:
+    return watcher.stop()
+
+
+@app.get("/api/watch/status")
+def api_watch_status() -> dict:
+    return watcher.status()
 
 
 app.mount("/static", StaticFiles(directory=WEB), name="static")

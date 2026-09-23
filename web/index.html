@@ -19,10 +19,15 @@
       </label>
       <span id="today" class="chip"></span>
       <span id="model" class="chip"></span>
+      <label id="watch-wrap" class="chip hidden">
+        <input type="checkbox" id="watch"> 새 메일 자동 감시
+      </label>
+      <span id="watch-state" class="chip hidden"></span>
       <button id="btn-fetch">메일 가져오기</button>
       <button id="btn-extract" class="primary">AI로 정리</button>
     </div>
   </div>
+  <div id="newmail" class="newmail hidden"></div>
   <div id="notice" class="notice hidden"></div>
   <div id="status" class="status hidden"></div>
   <div id="counts" class="counts"></div>

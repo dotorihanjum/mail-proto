@@ -243,12 +243,63 @@ $('#btn-fetch').addEventListener('click', async () => {
 });
 $('#source').addEventListener('change', (ev) => {
   load();
+  showWatchUi(ev.target.value === 'imap');
   const n = $('#notice');
   if (ev.target.value === 'imap') {
     n.innerHTML = '주의: 메일 내용이 AI 서비스(Anthropic)로 전송됩니다. ' +
       '<label><input type="checkbox" id="agree"> 이해했고 동의합니다</label>';
     n.classList.remove('hidden');
   } else n.classList.add('hidden');
+});
+
+
+// ── 새 메일 실시간 감시 (IMAP IDLE) ─────────────────────────────
+let watchTimer = null;
+
+function showWatchUi(on) {
+  $('#watch-wrap').classList.toggle('hidden', !on);
+  $('#watch-state').classList.toggle('hidden', !on);
+  if (!on) {
+    $('#newmail').classList.add('hidden');
+    if (watchTimer) { clearInterval(watchTimer); watchTimer = null; }
+  }
+}
+
+async function pollWatch() {
+  try {
+    const s = await (await fetch('/api/watch/status')).json();
+    $('#watch-state').textContent = `감시: ${s['상태']}`;
+    const box = $('#newmail');
+    if ((s['새 메일 신호'] || 0) > 0) {
+      box.textContent = '새 메일이 도착했습니다. ';
+      const b = document.createElement('button');
+      b.textContent = '지금 가져오기';
+      b.onclick = () => $('#btn-fetch').click();
+      box.appendChild(b);
+      box.classList.remove('hidden');
+    } else {
+      box.classList.add('hidden');
+    }
+  } catch (e) { /* 서버가 잠깐 응답하지 않을 수 있다 */ }
+}
+
+$('#watch').addEventListener('change', async (ev) => {
+  if (ev.target.checked) {
+    const s = await (await fetch('/api/watch/start', { method: 'POST' })).json();
+    if (!s['켜짐']) {
+      say(`감시를 켜지 못했습니다: ${s['상태']}`, true);
+      ev.target.checked = false;
+      return;
+    }
+    say('새 메일 감시를 켰습니다. 메일 서버가 알려주면 바로 표시합니다.');
+    pollWatch();
+    watchTimer = setInterval(pollWatch, 10000);
+  } else {
+    await fetch('/api/watch/stop', { method: 'POST' });
+    if (watchTimer) { clearInterval(watchTimer); watchTimer = null; }
+    $('#watch-state').textContent = '감시: 꺼짐';
+    $('#newmail').classList.add('hidden');
+  }
 });
 
 load();
