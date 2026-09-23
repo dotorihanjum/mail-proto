@@ -40,11 +40,23 @@ def _decode(raw: str | None) -> str:
 
 def connect() -> imaplib.IMAP4_SSL:
     """로그인까지 한다. 실패하면 한국어 안내를 담아 던진다."""
-    if not config.IMAP_USER or not config.IMAP_APP_PASSWORD:
+    missing = [n for n, v in (("IMAP_USER", config.IMAP_USER),
+                              ("IMAP_APP_PASSWORD", config.IMAP_APP_PASSWORD))
+               if not v]
+    if missing:
+        # 무엇이 비었는지 정확히 짚어준다. 둘 다 비었다고 뭉뚱그리면
+        # 이미 채운 쪽을 계속 다시 보게 된다.
         raise ImapError(
-            ".env 에 IMAP_USER 와 IMAP_APP_PASSWORD 가 비어 있습니다.",
-            ["`.env` 파일을 열어 학교 메일 주소와 16자리 앱 비밀번호를 넣으세요.",
-             "앱 비밀번호는 띄어쓰기를 빼고 붙여넣습니다."])
+            f".env 의 {' 와 '.join(missing)} 가 비어 있습니다.",
+            [f"`.env` 파일 안에서 `{missing[0]}=` 로 시작하는 줄을 찾아 "
+             f"등호 뒤에 값을 넣고 저장하세요.",
+             "앱 비밀번호는 띄어쓰기를 빼고 16자만 붙여넣습니다.",
+             "파일 위치: " + str(config.ROOT / ".env")])
+    if len(config.IMAP_APP_PASSWORD) != 16:
+        raise ImapError(
+            f"앱 비밀번호가 16자가 아닙니다. (지금 {len(config.IMAP_APP_PASSWORD)}자)",
+            ["구글이 준 16자리를 띄어쓰기 없이 붙여넣었는지 확인하세요.",
+             "평소 쓰는 비밀번호가 아니라 앱 비밀번호여야 합니다."])
     try:
         conn = imaplib.IMAP4_SSL(config.IMAP_HOST, 993, timeout=20)
     except OSError as e:
