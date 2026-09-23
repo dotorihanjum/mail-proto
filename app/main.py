@@ -23,13 +23,13 @@ def index() -> FileResponse:
 
 
 @app.get("/api/view")
-def api_view(model: str | None = None) -> dict:
-    return service.build_view(model)
+def api_view(model: str | None = None, source: str = "sample") -> dict:
+    return service.build_view(model, source)
 
 
 @app.get("/api/email/{email_id}")
-def api_email(email_id: str) -> dict:
-    d = service.email_detail(email_id)
+def api_email(email_id: str, source: str = "sample") -> dict:
+    d = service.email_detail(email_id, source)
     if d is None:
         raise HTTPException(404, f"메일을 찾을 수 없습니다: {email_id}")
     return d

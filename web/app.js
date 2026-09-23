@@ -1,6 +1,7 @@
 'use strict';
 
 const $ = (s) => document.querySelector(s);
+const SRC = () => $('#source').value;
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g,
   (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -65,7 +66,7 @@ function row(it, kind) {
       <div class="evidence">${esc(it.evidence)}</div>
       <div class="src">${srcs}</div>
     </div>
-    <div class="dday p${it.priority}">${ddayText(it.dday)}</div>
+    <div class="dday p${it.priority}">${it.deadline_iso ? ddayText(it.dday) : '기한 없음'}</div>
   </div>`;
 }
 
@@ -87,11 +88,21 @@ function render() {
   };
   put('#review', v.needs_review, 'rev', '확인이 필요한 항목이 없습니다.');
   put('#upcoming', v.upcoming, '', '다가오는 마감이 없습니다.');
+  put('#anytime', v.anytime || [], 'anytime', '기한 없는 할 일이 없습니다.');
   put('#overdue', v.overdue, 'over', '지난 마감이 없습니다.');
 
   $('#n-review').textContent = v.counts['확인 필요'];
   $('#n-upcoming').textContent = v.upcoming.length;
+  $('#n-anytime').textContent = (v.anytime || []).length;
+  $('#n-verification').textContent = (v.verification || []).length;
   $('#n-overdue').textContent = v.counts['지남'];
+
+  $('#verification').innerHTML = (v.verification || []).map((r) => `<div class="row verif">
+      <div class="grow"><div class="title">${esc(r.subject)}</div>
+      <div class="meta">${esc(r.account)} · ${esc(r.received_at)}</div>
+      <div class="meta">${esc(r.summary)}</div>
+      <div><button class="link" data-email="${esc(r.email_id)}">원문에서 코드 확인</button></div>
+      </div></div>`).join('') || '<div class="empty">인증 메일이 없습니다.</div>';
   $('#n-reference').textContent = v.counts['참고용'];
   $('#n-failed').textContent = v.counts['정리 실패'];
 
@@ -112,7 +123,7 @@ function render() {
 
 // ── 서버 통신 ─────────────────────────────────────────────────────
 async function load() {
-  const r = await fetch('/api/view');
+  const r = await fetch(`/api/view?source=${SRC()}`);
   const v = await r.json();
   if (!v.ready) {
     say('아직 정리된 결과가 없습니다. [AI로 정리] 를 눌러주세요.');
@@ -165,7 +176,7 @@ async function toggle(cb) {
 let DETAIL = null;
 
 async function openEmail(id) {
-  const r = await fetch(`/api/email/${id}`);
+  const r = await fetch(`/api/email/${id}?source=${SRC()}`);
   if (!r.ok) { say('원문을 불러오지 못했습니다.', true); return; }
   DETAIL = await r.json();
   $('#m-subject').textContent = DETAIL.subject;
@@ -212,6 +223,7 @@ $('#btn-fetch').addEventListener('click', () => {
   say('샘플 메일 30통을 사용합니다. 실제 메일 가져오기는 M7에서 열립니다.');
 });
 $('#source').addEventListener('change', (ev) => {
+  load();
   const n = $('#notice');
   if (ev.target.value === 'imap') {
     n.innerHTML = '주의: 메일 내용이 AI 서비스(Anthropic)로 전송됩니다. ' +

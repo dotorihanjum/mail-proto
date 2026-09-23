@@ -19,23 +19,32 @@ from app.rules import (PRIORITY_TEXT, days_until, merge_duplicates,
 from app.validate import REASON_TEXT
 
 
-def _load(model: str | None = None) -> tuple[list[dict], dict, str]:
+def _load(model: str | None = None,
+          source: str = "sample") -> tuple[list[dict], dict, str]:
     model = model or config.ANTHROPIC_MODEL
-    path = config.DATA_DIR / f"extract_{model}.json"
+    suffix = "" if source == "sample" else f"_{source}"
+    path = config.DATA_DIR / f"extract{suffix}_{model}.json"
     if not path.exists():
         return [], {}, model
     data = json.loads(path.read_text(encoding="utf-8"))
-    emails = {e["id"]: e for e in json.loads(
-        (config.SAMPLES_DIR / "emails.json").read_text(encoding="utf-8"))["emails"]}
+    if source == "imap":
+        cached = config.DATA_DIR / "emails_imap.json"
+        if not cached.exists():
+            return [], {}, model
+        emails = {m["id"]: m for m in
+                  json.loads(cached.read_text(encoding="utf-8"))["emails"]}
+    else:
+        emails = {e["id"]: e for e in json.loads(
+            (config.SAMPLES_DIR / "emails.json").read_text(encoding="utf-8"))["emails"]}
     return data["outputs"], emails, data["model"]
 
 
-def build_view(model: str | None = None) -> dict:
-    outs, emails, model = _load(model)
+def build_view(model: str | None = None, source: str = "sample") -> dict:
+    outs, emails, model = _load(model, source)
     if not outs:
         return {"ready": False, "model": model}
 
-    today = config.today_for("sample")
+    today = config.today_for(source)
     states = db.get_states()
 
     # 항목을 한 줄로 펴면서 출처 메일 정보를 붙인다
@@ -80,40 +89,60 @@ def build_view(model: str | None = None) -> dict:
 
     review = [m for m in merged if m.get("needs_review")]
     normal = [m for m in merged if not m.get("needs_review")]
-    overdue = [m for m in normal if m.get("is_overdue")]
-    upcoming = [m for m in normal if not m.get("is_overdue")]
+
+    # 마감이 있는 일 / 언제든 하면 되는 일을 나눈다.
+    # 기한이 없는 것이 정상인 할 일(진료확인서 제출 등)을 "확인 필요"에
+    # 쌓아두면 그 섹션이 무의미해진다.
+    anytime = [m for m in normal if not m.get("deadline_iso")]
+    dated = [m for m in normal if m.get("deadline_iso")]
+    overdue = [m for m in dated if m.get("is_overdue")]
+    upcoming = [m for m in dated if not m.get("is_overdue")]
     upcoming.sort(key=lambda m: (m["deadline_iso"] or "9999", m["title"]))
     overdue.sort(key=lambda m: m["deadline_iso"] or "")
+    anytime.sort(key=lambda m: m["received_at"], reverse=True)
 
-    # 참고용 / 정리 실패
-    reference, failed = [], []
+    # 인증 / 참고용 / 정리 실패
+    verification, reference, failed = [], [], []
     for o in outs:
         em = emails.get(o["email_id"], {})
         base = {"email_id": o["email_id"], "account": em.get("account", ""),
-                "subject": em.get("subject", ""), "received_at": em.get("received_at", "")[:10]}
+                "subject": em.get("subject", ""),
+                "received_at": em.get("received_at", "")[:10]}
         if o["status"] != "success":
             failed.append({**base, "fail_kind": o.get("fail_kind"),
                            "error_message": o.get("error_message")})
+            continue
+        cat = o["result"]["category"]
+        entry = {**base, "category": cat, "summary": o["result"]["summary"],
+                 "injection": o["result"].get("contains_instruction_to_ai", False)}
+        if cat == "인증·보안":
+            # 인증 메일은 받는 즉시 쓰는 것이라 할 일 목록에 두지 않는다.
+            # 대신 "필요할 때 찾아보는" 별도 목록으로 모은다. 최신이 위로.
+            verification.append(entry)
         elif not o["result"]["action_required"]:
-            reference.append({**base, "category": o["result"]["category"],
-                              "summary": o["result"]["summary"],
-                              "injection": o["result"].get("contains_instruction_to_ai", False)})
+            reference.append(entry)
+    verification.sort(key=lambda v: v["received_at"], reverse=True)
 
     return {
         "ready": True,
         "model": model,
+        "source": source,
         "today": str(today),
         "today_top": today_top(merged, today),
         "needs_review": review,
         "upcoming": upcoming,
+        "anytime": anytime,
         "overdue": overdue,
+        "verification": verification,
         "reference": reference,
         "failed": failed,
         "counts": {
             "메일": len(outs),
-            "할 일": len(merged),
+            "마감 있는 할 일": len(upcoming),
+            "언제든 하는 일": len(anytime),
             "확인 필요": len(review),
             "지남": len(overdue),
+            "인증": len(verification),
             "참고용": len(reference),
             "정리 실패": len(failed),
             "중복 묶음": sum(1 for m in merged if m["is_merged"]),
@@ -121,12 +150,18 @@ def build_view(model: str | None = None) -> dict:
     }
 
 
-def email_detail(email_id: str) -> dict | None:
+def email_detail(email_id: str, source: str = "sample") -> dict | None:
     """원문 보기. 마스킹본도 함께 준다 (SPEC 10장 8번 미리보기)."""
     from app.normalize import normalize
 
-    emails = json.loads(
-        (config.SAMPLES_DIR / "emails.json").read_text(encoding="utf-8"))["emails"]
+    if source == "imap":
+        cached = config.DATA_DIR / "emails_imap.json"
+        if not cached.exists():
+            return None
+        emails = json.loads(cached.read_text(encoding="utf-8"))["emails"]
+    else:
+        emails = json.loads(
+            (config.SAMPLES_DIR / "emails.json").read_text(encoding="utf-8"))["emails"]
     em = next((e for e in emails if e["id"] == email_id), None)
     if em is None:
         return None

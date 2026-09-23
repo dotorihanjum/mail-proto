@@ -14,7 +14,7 @@
       <label>데이터
         <select id="source">
           <option value="sample">샘플 메일 30통</option>
-          <option value="imap" disabled>경희대 메일 (M7에서 열립니다)</option>
+          <option value="imap">경희대 메일 (실제)</option>
         </select>
       </label>
       <span id="today" class="chip"></span>
@@ -43,6 +43,18 @@
   <section>
     <h2>마감 목록 <span id="n-upcoming" class="badge"></span></h2>
     <div id="upcoming" class="list"></div>
+  </section>
+
+  <section>
+    <h2>언제든 하면 되는 일 <span id="n-anytime" class="badge"></span></h2>
+    <p class="hint">기한이 따로 없는 할 일입니다. 마감을 못 찾은 것이 아니라 원래 없는 것입니다.</p>
+    <div id="anytime" class="list"></div>
+  </section>
+
+  <section>
+    <h2>인증·보안 메일 <span id="n-verification" class="badge"></span></h2>
+    <p class="hint">받는 즉시 쓰는 메일이라 할 일로 두지 않습니다. 필요할 때 여기서 찾으세요. 최신순.</p>
+    <div id="verification" class="list"></div>
   </section>
 
   <section>

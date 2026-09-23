@@ -19,7 +19,7 @@ from app import config
 # 확인 필요 사유. items.review_reason 에 들어가는 값과 같아야 한다.
 REASON_TEXT = {
     "low_confidence": "AI가 확신하지 못함",
-    "no_deadline": "할 일은 있는데 마감일을 찾지 못함",
+    "no_deadline": "기한이 있어야 하는데 마감일을 찾지 못함",
     "no_evidence": "근거 문장이 본문에 없음",
     "date_mismatch": "AI와 규칙 코드의 날짜가 다름",
     "far_future": "연도 없는 날짜가 너무 먼 미래",
@@ -70,7 +70,8 @@ def validate_extraction(out: dict) -> dict:
         if it["confidence"] <= config.CONFIDENCE_REVIEW_MAX:
             reasons.append("low_confidence")
 
-        if it["deadline_iso"] is None:
+        # 마감이 있어야 하는 종류인데 못 찾은 경우만 확인 필요
+        if it["deadline_iso"] is None and it.get("deadline_expected", True):
             reasons.append("no_deadline")
 
         it["review_reason"] = reasons

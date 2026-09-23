@@ -336,10 +336,12 @@ def apply_rules(out: dict, received: date, today: date) -> dict:
         # 상한을 씌운 뒤 신뢰도를 다시 본다
         if it["confidence"] <= config.CONFIDENCE_REVIEW_MAX and "low_confidence" not in reasons:
             reasons.append("low_confidence")
-        # 마감이 확정됐으면 no_deadline 은 빼준다
-        if it["deadline_iso"] and "no_deadline" in reasons:
+        # 마감이 없다고 무조건 확인 필요로 보내지 않는다.
+        # "원래 마감이 있는 종류인데 못 찾은" 경우만 사람이 봐야 한다.
+        # 진료확인서 제출처럼 기한이 없는 일은 정상이므로 그냥 둔다.
+        if "no_deadline" in reasons:
             reasons.remove("no_deadline")
-        elif not it["deadline_iso"] and "no_deadline" not in reasons:
+        if not it["deadline_iso"] and it.get("deadline_expected", True):
             reasons.append("no_deadline")
 
         it["review_reason"] = reasons

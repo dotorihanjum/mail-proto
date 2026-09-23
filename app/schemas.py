@@ -10,7 +10,7 @@ import re
 
 CATEGORIES = (
     "학사·수강", "장학·등록금", "과제·수업", "취업·공모전",
-    "동아리·학생회", "행정·증명", "광고·뉴스레터", "기타",
+    "동아리·학생회", "행정·증명", "인증·보안", "광고·뉴스레터", "기타",
 )
 
 # YYYY-MM-DD 또는 YYYY-MM-DDTHH:MM
@@ -32,6 +32,13 @@ class ExtractedItem(BaseModel):
     time_specified: bool = Field(description="본문에 시각(몇 시)이 적혀 있었는지.")
     confidence: float = Field(description="0.0~1.0. 애매할수록 낮게.")
     evidence: str = Field(description="본문에서 글자 그대로 복사한 근거 문장 한 문장.")
+    deadline_expected: bool = Field(
+        description=(
+            "이 할 일이 원래 마감이 있는 종류인가. "
+            "신청·접수·납부·제출 기한처럼 늦으면 못 하게 되는 일이면 true. "
+            "진료확인서 제출처럼 기한이 따로 없고 그냥 하면 되는 일이면 false. "
+            "true 인데 마감을 못 찾았다면 사람이 확인해야 한다."
+        ))
 
     @field_validator("deadline_iso")
     @classmethod
